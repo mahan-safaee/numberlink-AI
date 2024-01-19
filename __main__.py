@@ -2,6 +2,7 @@ import itertools
 import time
 from collections import defaultdict
 from queue import PriorityQueue as PQ
+from copy import deepcopy
 from termcolor import colored
 import numpy as np
 
@@ -25,7 +26,7 @@ class Dot:
         return sum(abs(z1 - z2) for z1, z2 in zip(self.loc, other.loc))
 
     def copy(self):
-        return self.__class__(self.color, self.cord)
+        return self.__class__(self.color, self.loc, self.is_dot)
 
     def __repr__(self) -> str:
         return colored(self.icon, self.color)
@@ -51,11 +52,18 @@ class DotGraph:
                 dot.color, dot.is_dot = col, True
                 self.pairs[col] += (dot,)
 
-    def copy_pairs(self):
-        new_pairs = {}
-        for col, (d1, d2) in self.pairs.items():
-            new_pairs[col] = (d1, d2)
-        return new_pairs
+    def copy(self):
+        copy = self.__class__(0, {})
+        copy.recents = deepcopy(self.recents)
+        size = copy.size = self.size
+        copy.mat = np.array(
+            [dot.copy() for dot in self.mat.flat],
+            dtype=Dot,
+        ).reshape((size, size))
+        copy.pairs = {}
+        for color, (d1, d2) in self.pairs.items():
+            copy.pairs[color] = (copy.mat[d1.loc], copy.mat[d2.loc])
+        return copy
 
     @property
     def solved(self):
