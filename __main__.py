@@ -88,8 +88,25 @@ class DotGraph:
                 pq.put((next_dot - dest, next_dot.loc, next_dot))
         return [x[-1] for x in pq.queue]
 
+    def check_path(self, start: Dot, end: Dot, color: str):
+        rows = cols = self.size
+        stack = [start]
+        visited = np.full((rows, cols), False, dtype=bool)
+        while stack:
+            dot = stack.pop()
+            if dot == end:
+                return True
+            visited[dot.loc] = True
+            for near_dot in self.get_all_near_dots(dot):
+                if near_dot.color in {self.EMPTY, color} and not visited[near_dot.loc]:
+                    stack.append(near_dot)
+        return False
+
     @property
     def good(self):
+        for color, (d1, d2) in self.pairs.items():
+            if not self.check_path(d1, d2, color):
+                return False
         for dot in self.mat.flat:
             dot: Dot
             color = dot.color
@@ -128,45 +145,38 @@ class DotGraph:
             cc.color = self.EMPTY
 
     def solver(self, first=True):
-        changeds: list[Dot] = []
-        pairs_orig = self.copy_pairs()
         while True:
             if not self.good:
-                self.do_if_not_good(po=pairs_orig, ch=changeds)
                 return
             if self.solved:
                 return self
+            if not first:
+                break
             match self.do_dots():
                 case (False, _):
-                    self.do_if_not_good(po=pairs_orig, ch=changeds)
                     return
                 case (True, []):
                     break
-                case (True, lis):
-                    changeds += lis
         if first:  # show after doing dots
             print(self.mat)
         for color, (orig, dest) in self.order_colors():
             if (orig - dest) > 1:  # if not already connected
-                near_dots = self.get_near_dots(orig, dest)
-                if not near_dots:
-                    return
-                for near_dot in near_dots:
+                for near_dot in self.get_near_dots(orig, dest):
                     # ************************************
-                    self.pairs[color] = (near_dot, dest)
                     near_dot.color = color
+                    self.pairs[color] = (near_dot, dest)
                     self.recents[color] -= 1
                     # ************************************
                     if self.solver(False):
                         return self
                     # ?????????????????????????????????????
-                    self.do_if_not_good(po=pairs_orig, ch=changeds)
                     self.recents[color] += 1
                     self.pairs[color] = (orig, dest)
                     near_dot.color = self.EMPTY
                     # ?????????????????????????????????????
 
     def show_solve_show(self):
+        print("{0}x{0},".format(self.size), len(self.pairs), "colors")
         print(self.mat)
         t = time.time()
         self.solver()
@@ -248,6 +258,6 @@ DotGraph(
         "magenta": [(0, 1), (4, 7)],
         "cyan": [(0, 0), (3, 1)],
         "grey": [(2, 1), (6, 2)],
-        "light_magenta": [(3, 5), (7, 7)],
+        "yellow": [(3, 5), (7, 7)],
     },
 ).show_solve_show()
